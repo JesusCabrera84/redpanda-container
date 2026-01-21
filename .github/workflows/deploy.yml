@@ -61,7 +61,7 @@ jobs:
 
       - name: Save Docker image
         run: |
-          docker save dev-redpanda-container-redpanda:latest | gzip > siscom-redpanda.tar.gz
+          docker save siscom-redpanda:latest | gzip > siscom-redpanda.tar.gz
 
       - name: Copy files to EC2
         uses: appleboy/scp-action@v0.1.7
