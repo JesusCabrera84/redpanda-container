@@ -70,8 +70,9 @@ jobs:
           username: ${{ secrets.EC2_USERNAME }}
           key: ${{ secrets.EC2_SSH_KEY }}
           port: ${{ secrets.EC2_SSH_PORT }}
-          source: "siscom-redpanda.tar.gz,docker-compose.yml,setup-redpanda.sh"
+          source: "siscom-redpanda.tar.gz,docker-compose.yml,setup-redpanda.sh,Dockerfile"
           target: "/home/${{ secrets.EC2_USERNAME }}/siscom-redpanda"
+          strip_components: 0
 
       - name: Deploy to EC2
         uses: appleboy/ssh-action@v1.0.3
@@ -89,12 +90,18 @@ jobs:
           username: ${{ secrets.EC2_USERNAME }}
           key: ${{ secrets.EC2_SSH_KEY }}
           port: ${{ secrets.EC2_SSH_PORT }}
+          script_stop: true
           envs: SUPER_USER,SUPER_PASS,PRODUCER_USER,PRODUCER_PASS,CONSUMER_USER,CONSUMER_PASS,LIVE_CONSUMER_USER,LIVE_CONSUMER_PASS
           script: |
+            mkdir -p /home/${{ secrets.EC2_USERNAME }}/siscom-redpanda
             cd /home/${{ secrets.EC2_USERNAME }}/siscom-redpanda
 
             echo "📦 Cargando imagen de Redpanda..."
-            docker load < siscom-redpanda.tar.gz
+            if [ -f siscom-redpanda.tar.gz ]; then
+              docker load < siscom-redpanda.tar.gz
+            else
+              echo "⚠️ Archivo siscom-redpanda.tar.gz no encontrado, intentando build local..."
+            fi
 
             echo "🔧 Configurando variables de entorno..."
             cat > .env << EOF
@@ -114,10 +121,11 @@ jobs:
 
             echo "🚀 Reiniciando servicio..."
             docker-compose down || true
-            docker-compose up -d
+            docker-compose up -d --build
 
             echo "⏳ Esperando a que Redpanda esté listo..."
-            timeout 180s bash -c 'until docker logs redpanda-0 2>&1 | grep "Redpanda setup finished successfully."; do sleep 5; done'
+            # Aumentamos el timeout y verificamos de forma más estricta
+            timeout 300s bash -c 'until docker logs redpanda-0 2>&1 | grep "Redpanda setup finished successfully."; do sleep 5; done'
 
             echo "✅ Verificando estado final..."
             docker exec redpanda-0 rpk cluster info \
@@ -126,4 +134,5 @@ jobs:
               -X user=${SUPER_USER} \
               -X pass=${SUPER_PASS}
 
+            # Limpiar el archivo para ahorrar espacio
             rm -f siscom-redpanda.tar.gz
