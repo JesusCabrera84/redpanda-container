@@ -1,0 +1,15 @@
+{
+    "name": "Redpanda Lab",
+    "dockerComposeFile": "../docker-compose.yml",
+    "service": "linux",
+    "workspaceFolder": "/workspaces/${localWorkspaceFolderBasename}",
+    "postCreateCommand": "/usr/local/bin/setup-redpanda.sh",
+    "customizations": {
+        "vscode": {
+            "extensions": [
+                "ms-azuretools.vscode-docker",
+                "redhat.vscode-yaml"
+            ]
+        }
+    }
+}

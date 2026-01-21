@@ -1,0 +1,29 @@
+name: Redpanda CI
+
+on:
+  push:
+    branches: [ master ]
+  pull_request:
+    branches: [ master ]
+
+jobs:
+  test-redpanda:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Create external network and volume
+        run: |
+          docker network create siscom-network
+          docker volume create redpanda_data
+
+      - name: Build and Start Redpanda
+        run: docker-compose up -d
+
+      - name: Run Redpanda Setup
+        run: docker exec linux-redpanda-lab /usr/local/bin/setup-redpanda.sh
+
+      - name: Verify Setup
+        run: |
+          docker exec linux-redpanda-lab rpk cluster info --brokers localhost:9092 -X sasl.mechanism=SCRAM-SHA-256 -X user=superuser -X pass=secretpassword
+          docker exec linux-redpanda-lab rpk security user list

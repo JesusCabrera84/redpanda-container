@@ -1,0 +1,18 @@
+services:
+  redpanda:
+    build: .
+    container_name: redpanda-0
+    stdin_open: true
+    tty: true
+    volumes:
+      - redpanda_data:/var/lib/redpanda
+    networks:
+      - siscom-network
+
+networks:
+  siscom-network:
+    external: true
+
+volumes:
+  redpanda_data:
+    external: true
