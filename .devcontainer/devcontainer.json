@@ -1,7 +1,7 @@
 {
     "name": "Redpanda Lab",
     "dockerComposeFile": "../docker-compose.yml",
-    "service": "linux",
+    "service": "redpanda",
     "workspaceFolder": "/workspaces/${localWorkspaceFolderBasename}",
     "postCreateCommand": "/usr/local/bin/setup-redpanda.sh",
     "customizations": {

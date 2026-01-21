@@ -25,6 +25,14 @@ docker network create siscom-network
 docker volume create redpanda_data
 ```
 
+Create your `.env` file from the example:
+
+```bash
+cp .env.example .env
+```
+
+(Optional) Edit `.env` to change default users and passwords.
+
 Build and start:
 
 ```bash

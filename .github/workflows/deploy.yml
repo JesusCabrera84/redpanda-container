@@ -2,9 +2,9 @@ name: Redpanda CI
 
 on:
   push:
-    branches: [ master ]
+    branches: [ master, main ]
   pull_request:
-    branches: [ master ]
+    branches: [ master, main ]
 
 jobs:
   test-redpanda:
@@ -12,18 +12,44 @@ jobs:
     steps:
       - uses: actions/checkout@v3
 
+      - name: Create .env file for Docker Compose
+        run: |
+          # Use defaults if secrets are not set for CI testing purposes
+          # If they are set in GitHub, they will override these values
+          echo "REDPANDA_SUPERUSER_NAME=${{ secrets.REDPANDA_SUPERUSER_NAME || 'superuser' }}" >> .env
+          echo "REDPANDA_SUPERUSER_PASSWORD=${{ secrets.REDPANDA_SUPERUSER_PASSWORD || 'secretpassword' }}" >> .env
+          echo "PRODUCER_USER_NAME=${{ secrets.PRODUCER_USER_NAME || 'siscom-producer' }}" >> .env
+          echo "PRODUCER_USER_PASSWORD=${{ secrets.PRODUCER_USER_PASSWORD || 'producerpassword' }}" >> .env
+          echo "CONSUMER_USER_NAME=${{ secrets.CONSUMER_USER_NAME || 'siscom-consumer' }}" >> .env
+          echo "CONSUMER_USER_PASSWORD=${{ secrets.CONSUMER_USER_PASSWORD || 'consumerpassword' }}" >> .env
+          echo "LIVE_CONSUMER_USER_NAME=${{ secrets.LIVE_CONSUMER_USER_NAME || 'siscom-live-consumer' }}" >> .env
+          echo "LIVE_CONSUMER_USER_PASSWORD=${{ secrets.LIVE_CONSUMER_USER_PASSWORD || 'liveconsumerpassword' }}" >> .env
+
       - name: Create external network and volume
         run: |
-          docker network create siscom-network
-          docker volume create redpanda_data
+          docker network create siscom-network || true
+          docker volume create redpanda_data || true
 
       - name: Build and Start Redpanda
-        run: docker-compose up -d
+        run: docker-compose up -d --build
 
-      - name: Run Redpanda Setup
-        run: docker exec linux-redpanda-lab /usr/local/bin/setup-redpanda.sh
+      - name: Wait for Setup to Finish
+        run: |
+          echo "Waiting for Redpanda setup to complete..."
+          # The setup script runs as PID 1, so we wait for the final message in logs
+          timeout 180s bash -c 'until docker logs redpanda-0 2>&1 | grep "Redpanda setup finished successfully."; do sleep 5; done'
 
       - name: Verify Setup
+        env:
+          SUPER_USER: ${{ secrets.REDPANDA_SUPERUSER_NAME || 'superuser' }}
+          SUPER_PASS: ${{ secrets.REDPANDA_SUPERUSER_PASSWORD || 'secretpassword' }}
         run: |
-          docker exec linux-redpanda-lab rpk cluster info --brokers localhost:9092 -X sasl.mechanism=SCRAM-SHA-256 -X user=superuser -X pass=secretpassword
-          docker exec linux-redpanda-lab rpk security user list
+          docker exec redpanda-0 rpk cluster info \
+            --brokers localhost:9092 \
+            -X sasl.mechanism=SCRAM-SHA-256 \
+            -X user="$SUPER_USER" \
+            -X pass="$SUPER_PASS"
+          docker exec redpanda-0 rpk security user list \
+            -X sasl.mechanism=SCRAM-SHA-256 \
+            -X user="$SUPER_USER" \
+            -X pass="$SUPER_PASS"

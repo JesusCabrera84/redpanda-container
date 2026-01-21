@@ -6,6 +6,7 @@ services:
     tty: true
     volumes:
       - redpanda_data:/var/lib/redpanda
+    env_file: .env
     networks:
       - siscom-network
 
