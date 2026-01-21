@@ -113,8 +113,8 @@ jobs:
             docker volume inspect redpanda_data >/dev/null 2>&1 || docker volume create redpanda_data
 
             echo "🚀 Reiniciando servicio..."
-            docker compose down || true
-            docker compose up -d
+            docker-compose down || true
+            docker-compose up -d
 
             echo "⏳ Esperando a que Redpanda esté listo..."
             timeout 180s bash -c 'until docker logs redpanda-0 2>&1 | grep "Redpanda setup finished successfully."; do sleep 5; done'
