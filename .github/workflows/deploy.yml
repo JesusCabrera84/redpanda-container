@@ -1,10 +1,11 @@
-name: Redpanda CI
+name: Redpanda CI/CD
 
 on:
   push:
-    branches: [ master, main ]
+    branches: [ master ]
   pull_request:
-    branches: [ master, main ]
+    branches: [ master ]
+  workflow_dispatch:
 
 jobs:
   test-redpanda:
@@ -12,18 +13,16 @@ jobs:
     steps:
       - uses: actions/checkout@v3
 
-      - name: Create .env file for Docker Compose
+      - name: Create .env file for testing
         run: |
-          # Use defaults if secrets are not set for CI testing purposes
-          # If they are set in GitHub, they will override these values
-          echo "REDPANDA_SUPERUSER_NAME=${{ secrets.REDPANDA_SUPERUSER_NAME || 'superuser' }}" >> .env
-          echo "REDPANDA_SUPERUSER_PASSWORD=${{ secrets.REDPANDA_SUPERUSER_PASSWORD || 'secretpassword' }}" >> .env
-          echo "PRODUCER_USER_NAME=${{ secrets.PRODUCER_USER_NAME || 'siscom-producer' }}" >> .env
-          echo "PRODUCER_USER_PASSWORD=${{ secrets.PRODUCER_USER_PASSWORD || 'producerpassword' }}" >> .env
-          echo "CONSUMER_USER_NAME=${{ secrets.CONSUMER_USER_NAME || 'siscom-consumer' }}" >> .env
-          echo "CONSUMER_USER_PASSWORD=${{ secrets.CONSUMER_USER_PASSWORD || 'consumerpassword' }}" >> .env
-          echo "LIVE_CONSUMER_USER_NAME=${{ secrets.LIVE_CONSUMER_USER_NAME || 'siscom-live-consumer' }}" >> .env
-          echo "LIVE_CONSUMER_USER_PASSWORD=${{ secrets.LIVE_CONSUMER_USER_PASSWORD || 'liveconsumerpassword' }}" >> .env
+          echo "REDPANDA_SUPERUSER_NAME=superuser" >> .env
+          echo "REDPANDA_SUPERUSER_PASSWORD=secretpassword" >> .env
+          echo "PRODUCER_USER_NAME=siscom-producer" >> .env
+          echo "PRODUCER_USER_PASSWORD=producerpassword" >> .env
+          echo "CONSUMER_USER_NAME=siscom-consumer" >> .env
+          echo "CONSUMER_USER_PASSWORD=consumerpassword" >> .env
+          echo "LIVE_CONSUMER_USER_NAME=siscom-live-consumer" >> .env
+          echo "LIVE_CONSUMER_USER_PASSWORD=liveconsumerpassword" >> .env
 
       - name: Create external network and volume
         run: |
@@ -31,25 +30,99 @@ jobs:
           docker volume create redpanda_data || true
 
       - name: Build and Start Redpanda
-        run: docker-compose up -d --build
+        run: docker compose up -d --build
 
       - name: Wait for Setup to Finish
         run: |
           echo "Waiting for Redpanda setup to complete..."
-          # The setup script runs as PID 1, so we wait for the final message in logs
           timeout 180s bash -c 'until docker logs redpanda-0 2>&1 | grep "Redpanda setup finished successfully."; do sleep 5; done'
 
       - name: Verify Setup
-        env:
-          SUPER_USER: ${{ secrets.REDPANDA_SUPERUSER_NAME || 'superuser' }}
-          SUPER_PASS: ${{ secrets.REDPANDA_SUPERUSER_PASSWORD || 'secretpassword' }}
         run: |
           docker exec redpanda-0 rpk cluster info \
             --brokers localhost:9092 \
             -X sasl.mechanism=SCRAM-SHA-256 \
-            -X user="$SUPER_USER" \
-            -X pass="$SUPER_PASS"
-          docker exec redpanda-0 rpk security user list \
-            -X sasl.mechanism=SCRAM-SHA-256 \
-            -X user="$SUPER_USER" \
-            -X pass="$SUPER_PASS"
+            -X user=superuser \
+            -X pass=secretpassword
+
+  deploy-to-ec2:
+    needs: test-redpanda
+    if: github.event_name == 'push' && github.ref == 'refs/heads/master'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build Docker image
+        run: docker compose build
+
+      - name: Save Docker image
+        run: |
+          docker save dev-redpanda-container-redpanda:latest | gzip > siscom-redpanda.tar.gz
+
+      - name: Copy files to EC2
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ${{ secrets.EC2_USERNAME }}
+          key: ${{ secrets.EC2_SSH_KEY }}
+          port: ${{ secrets.EC2_SSH_PORT }}
+          source: "siscom-redpanda.tar.gz,docker-compose.yml,setup-redpanda.sh"
+          target: "/home/${{ secrets.EC2_USERNAME }}/siscom-redpanda"
+
+      - name: Deploy to EC2
+        uses: appleboy/ssh-action@v1.0.3
+        env:
+          SUPER_USER: ${{ secrets.REDPANDA_SUPERUSER_NAME || 'superuser' }}
+          SUPER_PASS: ${{ secrets.REDPANDA_SUPERUSER_PASSWORD || 'secretpassword' }}
+          PRODUCER_USER: ${{ secrets.PRODUCER_USER_NAME || 'siscom-producer' }}
+          PRODUCER_PASS: ${{ secrets.PRODUCER_USER_PASSWORD || 'producerpassword' }}
+          CONSUMER_USER: ${{ secrets.CONSUMER_USER_NAME || 'siscom-consumer' }}
+          CONSUMER_PASS: ${{ secrets.CONSUMER_USER_PASSWORD || 'consumerpassword' }}
+          LIVE_CONSUMER_USER: ${{ secrets.LIVE_CONSUMER_USER_NAME || 'siscom-live-consumer' }}
+          LIVE_CONSUMER_PASS: ${{ secrets.LIVE_CONSUMER_USER_PASSWORD || 'liveconsumerpassword' }}
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ${{ secrets.EC2_USERNAME }}
+          key: ${{ secrets.EC2_SSH_KEY }}
+          port: ${{ secrets.EC2_SSH_PORT }}
+          envs: SUPER_USER,SUPER_PASS,PRODUCER_USER,PRODUCER_PASS,CONSUMER_USER,CONSUMER_PASS,LIVE_CONSUMER_USER,LIVE_CONSUMER_PASS
+          script: |
+            cd /home/${{ secrets.EC2_USERNAME }}/siscom-redpanda
+
+            echo "📦 Cargando imagen de Redpanda..."
+            docker load < siscom-redpanda.tar.gz
+
+            echo "🔧 Configurando variables de entorno..."
+            cat > .env << EOF
+            REDPANDA_SUPERUSER_NAME=${SUPER_USER}
+            REDPANDA_SUPERUSER_PASSWORD=${SUPER_PASS}
+            PRODUCER_USER_NAME=${PRODUCER_USER}
+            PRODUCER_USER_PASSWORD=${PRODUCER_PASS}
+            CONSUMER_USER_NAME=${CONSUMER_USER}
+            CONSUMER_USER_PASSWORD=${CONSUMER_PASS}
+            LIVE_CONSUMER_USER_NAME=${LIVE_CONSUMER_USER}
+            LIVE_CONSUMER_USER_PASSWORD=${LIVE_CONSUMER_PASS}
+            EOF
+
+            echo "🌐 Preparando red y volúmenes..."
+            docker network inspect siscom-network >/dev/null 2>&1 || docker network create siscom-network
+            docker volume inspect redpanda_data >/dev/null 2>&1 || docker volume create redpanda_data
+
+            echo "🚀 Reiniciando servicio..."
+            docker compose down || true
+            docker compose up -d
+
+            echo "⏳ Esperando a que Redpanda esté listo..."
+            timeout 180s bash -c 'until docker logs redpanda-0 2>&1 | grep "Redpanda setup finished successfully."; do sleep 5; done'
+
+            echo "✅ Verificando estado final..."
+            docker exec redpanda-0 rpk cluster info \
+              --brokers localhost:9092 \
+              -X sasl.mechanism=SCRAM-SHA-256 \
+              -X user=${SUPER_USER} \
+              -X pass=${SUPER_PASS}
+
+            rm -f siscom-redpanda.tar.gz
