@@ -23,6 +23,7 @@ jobs:
           echo "CONSUMER_USER_PASSWORD=consumerpassword" >> .env
           echo "LIVE_CONSUMER_USER_NAME=siscom-live-consumer" >> .env
           echo "LIVE_CONSUMER_USER_PASSWORD=liveconsumerpassword" >> .env
+          echo "KAFKA_EXTERNAL_PORT=9092" >> .env
 
       - name: Create external network and volume
         run: |
@@ -113,6 +114,7 @@ jobs:
             CONSUMER_USER_PASSWORD=${CONSUMER_PASS}
             LIVE_CONSUMER_USER_NAME=${LIVE_CONSUMER_USER}
             LIVE_CONSUMER_USER_PASSWORD=${LIVE_CONSUMER_PASS}
+            KAFKA_EXTERNAL_PORT=${{ vars.KAFKA_EXTERNAL_PORT || '9092' }}
             EOF
 
             echo "🌐 Preparando red y volúmenes..."

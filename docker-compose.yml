@@ -8,6 +8,9 @@ services:
     volumes:
       - redpanda_data:/var/lib/redpanda
     env_file: .env
+    ports:
+      - "${KAFKA_EXTERNAL_PORT:-9092}:9092"
+      - "9644:9644"
     networks:
       - siscom-network
 
