@@ -62,7 +62,7 @@ kill $RP_PID || true
 sleep 5
 clear_pid_lock
 
-rpk redpanda start --overprovisioned --smp 1 --memory 1G --reserve-memory 0M --node-id 0 --check=false --kafka-addr SASL_PLAINTEXT://0.0.0.0:9092 --advertise-kafka-addr SASL_PLAINTEXT://localhost:9092 &
+rpk redpanda start --overprovisioned --smp 1 --memory 1G --reserve-memory 0M --node-id 0 --check=false --kafka-addr SASL_PLAINTEXT://0.0.0.0:9092 --advertise-kafka-addr SASL_PLAINTEXT://redpanda:9092 &
 RP_PID=$!
 wait_for_admin
 
@@ -75,7 +75,7 @@ kill $RP_PID || true
 sleep 5
 clear_pid_lock
 
-rpk redpanda start --overprovisioned --smp 1 --memory 1G --reserve-memory 0M --node-id 0 --check=false --kafka-addr SASL_PLAINTEXT://0.0.0.0:9092 --advertise-kafka-addr SASL_PLAINTEXT://localhost:9092 &
+rpk redpanda start --enable_sasl=true --kafka_api_sasl_enabled=true --sasl_mechanisms=SCRAM-SHA-256 --overprovisioned --smp 1 --memory 1G --reserve-memory 0M --node-id 0 --check=false --kafka-addr SASL_PLAINTEXT://0.0.0.0:9092 --advertise-kafka-addr SASL_PLAINTEXT://redpanda:9092 &
 RP_PID=$!
 wait_for_admin
 wait_for_kafka "-X sasl.mechanism=SCRAM-SHA-256 -X user=$SUPER_USER -X pass=$SUPER_PASS"
