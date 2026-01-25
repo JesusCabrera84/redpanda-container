@@ -41,7 +41,7 @@ jobs:
       - name: Verify Setup
         run: |
           docker exec redpanda-0 rpk cluster info \
-            --brokers localhost:9092 \
+            --brokers redpanda:9092 \
             -X sasl.mechanism=SCRAM-SHA-256 \
             -X user=superuser \
             -X pass=secretpassword
@@ -131,7 +131,7 @@ jobs:
 
             echo "✅ Verificando estado final..."
             docker exec redpanda-0 rpk cluster info \
-              --brokers localhost:9092 \
+              --brokers redpanda:9092 \
               -X sasl.mechanism=SCRAM-SHA-256 \
               -X user=${SUPER_USER} \
               -X pass=${SUPER_PASS}
