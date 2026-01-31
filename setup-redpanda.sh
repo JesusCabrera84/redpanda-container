@@ -16,13 +16,13 @@ LIVE_CONSUMER_PASS="${LIVE_CONSUMER_USER_PASSWORD:-liveconsumerpassword}"
 wait_for_admin() {
   echo "Waiting for Redpanda Admin API on 9644..."
   local count=0
-  until curl -s http://localhost:9644/v1/status/ready | grep "ready" > /dev/null 2>&1 || [ $count -eq 60 ]; do
+  until curl -s http://redpanda:9644/v1/status/ready | grep "ready" > /dev/null 2>&1 || [ $count -eq 60 ]; do
     sleep 2
     count=$((count + 1))
   done
   if [ $count -eq 60 ]; then
     echo "Timeout waiting for Redpanda Admin API"
-    curl -v http://localhost:9644/v1/status/ready || true
+    curl -v http://redpanda:9644/v1/status/ready || true
     exit 1
   fi
 }
@@ -32,7 +32,7 @@ wait_for_kafka() {
   local flags=$1
   echo "Waiting for Redpanda Kafka API on 9092..."
   local count=0
-  until rpk cluster info --brokers localhost:9092 $flags > /dev/null 2>&1 || [ $count -eq 60 ]; do
+  until rpk cluster info --brokers redpanda:9092 $flags > /dev/null 2>&1 || [ $count -eq 60 ]; do
     sleep 2
     count=$((count + 1))
   done
@@ -75,7 +75,7 @@ kill $RP_PID || true
 sleep 5
 clear_pid_lock
 
-rpk redpanda start --enable_sasl=true --kafka_api_sasl_enabled=true --sasl_mechanisms=SCRAM-SHA-256 --overprovisioned --smp 1 --memory 1G --reserve-memory 0M --node-id 0 --check=false --kafka-addr SASL_PLAINTEXT://0.0.0.0:9092 --advertise-kafka-addr SASL_PLAINTEXT://redpanda:9092 &
+rpk redpanda start --overprovisioned --smp 1 --memory 1G --reserve-memory 0M --node-id 0 --check=false --kafka-addr SASL_PLAINTEXT://0.0.0.0:9092 --advertise-kafka-addr SASL_PLAINTEXT://redpanda:9092 &
 RP_PID=$!
 wait_for_admin
 wait_for_kafka "-X sasl.mechanism=SCRAM-SHA-256 -X user=$SUPER_USER -X pass=$SUPER_PASS"
@@ -88,7 +88,7 @@ rpk security user create "$LIVE_CONSUMER_USER" -p "$LIVE_CONSUMER_PASS" --mechan
 # Create topics individually and ignore "already exists" errors
 for topic in siscom-messages siscom-minimal caudal-events caudal-live caudal-flows; do
   rpk topic create "$topic" \
-    --brokers localhost:9092 \
+    --brokers redpanda:9092 \
     -X sasl.mechanism=SCRAM-SHA-256 -X user="$SUPER_USER" -X pass="$SUPER_PASS" || echo "Topic $topic already exists"
 done
 
@@ -106,7 +106,7 @@ echo "Redpanda setup finished successfully."
 
 echo "Final Cluster Info:"
 rpk cluster info \
-  --brokers localhost:9092 \
+  --brokers redpanda:9092 \
   -X sasl.mechanism=SCRAM-SHA-256 \
   -X user="$SUPER_USER" \
   -X pass="$SUPER_PASS"

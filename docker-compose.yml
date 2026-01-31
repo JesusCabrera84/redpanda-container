@@ -10,7 +10,6 @@ services:
     env_file: .env
     environment:
       - REDPANDA_ENABLE_SASL=true
-      - REDPANDA_KAFKA_API_SASL_ENABLED=true
       - REDPANDA_SASL_MECHANISMS=SCRAM-SHA-256
     ports:
       - "${KAFKA_EXTERNAL_PORT:-9092}:9092"
