@@ -70,16 +70,6 @@ echo "[3/4] Creating Superuser and Configuring..."
 rpk security user create "$SUPER_USER" -p "$SUPER_PASS" --mechanism SCRAM-SHA-256 --api-urls 127.0.0.1:9644 || echo "Superuser might already exist"
 rpk cluster config set superusers "['$SUPER_USER']" -X admin.hosts=127.0.0.1:9644 || true
 
-# Restart to apply superuser
-kill $RP_PID || true
-sleep 5
-clear_pid_lock
-
-rpk redpanda start --overprovisioned --smp 1 --memory 1G --reserve-memory 0M --node-id 0 --check=false --kafka-addr SASL_PLAINTEXT://0.0.0.0:9092 --advertise-kafka-addr SASL_PLAINTEXT://redpanda:9092 &
-RP_PID=$!
-wait_for_admin
-wait_for_kafka "-X sasl.mechanism=SCRAM-SHA-256 -X user=$SUPER_USER -X pass=$SUPER_PASS"
-
 echo "[4/4] Creating App Users, Topics, and ACLs..."
 rpk security user create "$PRODUCER_USER" -p "$PRODUCER_PASS" --mechanism SCRAM-SHA-256 || echo "Producer user already exists"
 rpk security user create "$CONSUMER_USER" -p "$CONSUMER_PASS" --mechanism SCRAM-SHA-256 || echo "Consumer user already exists"
