@@ -23,6 +23,7 @@ jobs:
           echo "CONSUMER_USER_PASSWORD=consumerpassword" >> .env
           echo "LIVE_CONSUMER_USER_NAME=siscom-live-consumer" >> .env
           echo "LIVE_CONSUMER_USER_PASSWORD=liveconsumerpassword" >> .env
+          
           echo "KAFKA_EXTERNAL_PORT=9092" >> .env
 
       - name: Create external network and volume
@@ -86,13 +87,15 @@ jobs:
           CONSUMER_PASS: ${{ secrets.CONSUMER_USER_PASSWORD || 'consumerpassword' }}
           LIVE_CONSUMER_USER: ${{ secrets.LIVE_CONSUMER_USER_NAME || 'siscom-live-consumer' }}
           LIVE_CONSUMER_PASS: ${{ secrets.LIVE_CONSUMER_USER_PASSWORD || 'liveconsumerpassword' }}
+          EVENTS_PROCESSOR_USER: ${{ secrets.CONSUMER_USER_EVENTS_PROCESSOR_NAME || 'events-processor' }}
+          EVENTS_PROCESSOR_PASS: ${{ secrets.CONSUMER_USER_EVENTS_PROCESSOR_PASSWORD || 'eventsprocessorpassword' }}
         with:
           host: ${{ secrets.EC2_HOST }}
           username: ${{ secrets.EC2_USERNAME }}
           key: ${{ secrets.EC2_SSH_KEY }}
           port: ${{ secrets.EC2_SSH_PORT }}
           script_stop: true
-          envs: SUPER_USER,SUPER_PASS,PRODUCER_USER,PRODUCER_PASS,CONSUMER_USER,CONSUMER_PASS,LIVE_CONSUMER_USER,LIVE_CONSUMER_PASS
+          envs: SUPER_USER,SUPER_PASS,PRODUCER_USER,PRODUCER_PASS,CONSUMER_USER,CONSUMER_PASS,LIVE_CONSUMER_USER,LIVE_CONSUMER_PASS,EVENTS_PROCESSOR_USER,EVENTS_PROCESSOR_PASS
           script: |
             mkdir -p /home/${{ secrets.EC2_USERNAME }}/siscom-redpanda
             cd /home/${{ secrets.EC2_USERNAME }}/siscom-redpanda
@@ -114,6 +117,8 @@ jobs:
             CONSUMER_USER_PASSWORD=${CONSUMER_PASS}
             LIVE_CONSUMER_USER_NAME=${LIVE_CONSUMER_USER}
             LIVE_CONSUMER_USER_PASSWORD=${LIVE_CONSUMER_PASS}
+            CONSUMER_USER_EVENTS_PROCESSOR_NAME=${EVENTS_PROCESSOR_USER}
+            CONSUMER_USER_EVENTS_PROCESSOR_PASSWORD=${EVENTS_PROCESSOR_PASS}
             KAFKA_EXTERNAL_PORT=${{ vars.KAFKA_EXTERNAL_PORT || '9092' }}
             EOF
 

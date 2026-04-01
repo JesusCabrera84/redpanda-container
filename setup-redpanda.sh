@@ -15,6 +15,8 @@ CONSUMER_TRIPS_USER="${CONSUMER_USER_TRIPS_NAME:-siscom-consumer-trips}"
 CONSUMER_TRIPS_PASS="${CONSUMER_USER_TRIPS_PASSWORD:-consumertripspassword}"
 GEOCONTEXT_USER="${CONSUMER_USER_GEOCONTEXT_NAME:-geocontext}"
 GEOCONTEXT_PASS="${CONSUMER_USER_GEOCONTEXT_PASSWORD:-geocontext}"
+EVENTS_PROCESSOR_USER="${CONSUMER_USER_EVENTS_PROCESSOR_NAME:-events-processor}"
+EVENTS_PROCESSOR_PASS="${CONSUMER_USER_EVENTS_PROCESSOR_PASSWORD:-eventsprocessorpassword}"
 
 # Helper function to wait for Redpanda Admin API
 wait_for_admin() {
@@ -73,6 +75,8 @@ wait_for_admin
 echo "[3/4] Creating Superuser and Configuring..."
 rpk security user create "$SUPER_USER" -p "$SUPER_PASS" --mechanism SCRAM-SHA-256 --api-urls 127.0.0.1:9644 || echo "Superuser might already exist"
 rpk cluster config set superusers "['$SUPER_USER']" -X admin.hosts=127.0.0.1:9644 || true
+# Keep autobalancing mode on the non-Enterprise value to avoid license warnings.
+rpk cluster config set partition_autobalancing_mode node_add -X admin.hosts=127.0.0.1:9644 || true
 
 echo "[4/4] Creating App Users, Topics, and ACLs..."
 rpk security user create "$PRODUCER_USER" -p "$PRODUCER_PASS" --mechanism SCRAM-SHA-256 || echo "Producer user already exists"
@@ -80,6 +84,7 @@ rpk security user create "$CONSUMER_USER" -p "$CONSUMER_PASS" --mechanism SCRAM-
 rpk security user create "$LIVE_CONSUMER_USER" -p "$LIVE_CONSUMER_PASS" --mechanism SCRAM-SHA-256 || echo "Live consumer user already exists"
 rpk security user create "$CONSUMER_TRIPS_USER" -p "$CONSUMER_TRIPS_PASS" --mechanism SCRAM-SHA-256 || echo "Consumer trips user already exists"
 rpk security user create "$GEOCONTEXT_USER" -p "$GEOCONTEXT_PASS" --mechanism SCRAM-SHA-256 || echo "Geocontext user already exists"
+rpk security user create "$EVENTS_PROCESSOR_USER" -p "$EVENTS_PROCESSOR_PASS" --mechanism SCRAM-SHA-256 || echo "Events processor user already exists"
 
 # Create topics individually and ignore "already exists" errors
 for topic in siscom-messages siscom-minimal caudal-events caudal-live caudal-flows geocontext-enriched; do
@@ -101,7 +106,7 @@ rpk security acl create --allow-principal "User:$GEOCONTEXT_USER" --operation re
 rpk security acl create --allow-principal "User:$GEOCONTEXT_USER" --operation write,describe --topic geocontext-enriched -X user="$SUPER_USER" -X pass="$SUPER_PASS" || true
 rpk security acl create --allow-principal "User:$GEOCONTEXT_USER" --operation read,describe --topic geocontext-enriched -X user="$SUPER_USER" -X pass="$SUPER_PASS" || true
 rpk security acl create --allow-principal "User:$GEOCONTEXT_USER" --operation read,describe --group 'geocontext-enrichment-group' -X user="$SUPER_USER" -X pass="$SUPER_PASS" || true
-
+rpk security acl create --allow-principal "User:$EVENTS_PROCESSOR_USER" --operation read,describe --group 'events-processor-group' --topic siscom-minimal -X user="$SUPER_USER" -X pass="$SUPER_PASS" || true
 rpk cluster config set auto_create_topics_enabled false -X admin.hosts=127.0.0.1:9644 || true
 
 echo "Redpanda setup finished successfully."
