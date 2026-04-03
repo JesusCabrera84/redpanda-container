@@ -19,6 +19,9 @@ EVENTS_PROCESSOR_USER="${CONSUMER_USER_EVENTS_PROCESSOR_NAME:-events-processor}"
 EVENTS_PROCESSOR_PASS="${CONSUMER_USER_EVENTS_PROCESSOR_PASSWORD:-eventsprocessorpassword}"
 EVENTS_PROCESSOR_PRODUCER_USER="${PRODUCER_USER_EVENTS_PROCESSOR_NAME:-events-processor-producer}"
 EVENTS_PROCESSOR_PRODUCER_PASS="${PRODUCER_USER_EVENTS_PROCESSOR_PASSWORD:-eventsproducerpassword}"
+ALERT_USER_EVENTS_NAME="${CONSUMER_ALERT_USER_EVENTS_NAME:-events-alert-consumer}"
+ALERT_USER_EVENTS_PASSWORD="${CONSUMER_ALERT_USER_EVENTS_PASSWORD:-eventsalertconsumerpassword}"
+
 
 # Helper function to wait for Redpanda Admin API
 wait_for_admin() {
@@ -88,7 +91,7 @@ rpk security user create "$CONSUMER_TRIPS_USER" -p "$CONSUMER_TRIPS_PASS" --mech
 rpk security user create "$GEOCONTEXT_USER" -p "$GEOCONTEXT_PASS" --mechanism SCRAM-SHA-256 || echo "Geocontext user already exists"
 rpk security user create "$EVENTS_PROCESSOR_USER" -p "$EVENTS_PROCESSOR_PASS" --mechanism SCRAM-SHA-256 || echo "Events processor user already exists"
 rpk security user create "$EVENTS_PROCESSOR_PRODUCER_USER" -p "$EVENTS_PROCESSOR_PRODUCER_PASS" --mechanism SCRAM-SHA-256 || echo "Events processor producer user already exists"
-
+rpk security user create "$ALERT_USER_EVENTS_NAME" -p "$ALERT_USER_EVENTS_PASSWORD" --mechanism SCRAM-SHA-256 || echo "Alert user events already exists"
 # Create topics individually and ignore "already exists" errors
 for topic in siscom-messages siscom-minimal caudal-events caudal-live caudal-flows geocontext-enriched unit-events; do
   rpk topic create "$topic" \
@@ -111,6 +114,7 @@ rpk security acl create --allow-principal "User:$GEOCONTEXT_USER" --operation re
 rpk security acl create --allow-principal "User:$GEOCONTEXT_USER" --operation read,describe --group 'geocontext-enrichment-group' -X user="$SUPER_USER" -X pass="$SUPER_PASS" || true
 rpk security acl create --allow-principal "User:$EVENTS_PROCESSOR_USER" --operation read,describe --group 'events-processor-group' --topic siscom-minimal -X user="$SUPER_USER" -X pass="$SUPER_PASS" || true
 rpk security acl create --allow-principal "User:$EVENTS_PROCESSOR_PRODUCER_USER" --operation write,describe --topic unit-events -X user="$SUPER_USER" -X pass="$SUPER_PASS" || true
+rpk security acl create --allow-principal "User:$ALERT_USER_EVENTS_NAME" --operation read,describe --group 'alert-processor-group' --topic unit-events -X user="$SUPER_USER" -X pass="$SUPER_PASS" || true
 rpk cluster config set auto_create_topics_enabled false -X admin.hosts=127.0.0.1:9644 || true
 
 echo "Redpanda setup finished successfully."
