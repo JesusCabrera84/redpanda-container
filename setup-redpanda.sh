@@ -93,7 +93,7 @@ rpk security user create "$EVENTS_PROCESSOR_USER" -p "$EVENTS_PROCESSOR_PASS" --
 rpk security user create "$EVENTS_PROCESSOR_PRODUCER_USER" -p "$EVENTS_PROCESSOR_PRODUCER_PASS" --mechanism SCRAM-SHA-256 || echo "Events processor producer user already exists"
 rpk security user create "$ALERT_USER_EVENTS_NAME" -p "$ALERT_USER_EVENTS_PASSWORD" --mechanism SCRAM-SHA-256 || echo "Alert user events already exists"
 # Create topics individually and ignore "already exists" errors
-for topic in siscom-messages siscom-minimal caudal-events caudal-live caudal-flows geocontext-enriched unit-events; do
+for topic in siscom-messages siscom-minimal caudal-events caudal-live caudal-flows geocontext-enriched unit-events unit-alerts; do
   rpk topic create "$topic" \
     --brokers redpanda:9092 \
     -X sasl.mechanism=SCRAM-SHA-256 -X user="$SUPER_USER" -X pass="$SUPER_PASS" || echo "Topic $topic already exists"
@@ -114,6 +114,8 @@ rpk security acl create --allow-principal "User:$GEOCONTEXT_USER" --operation re
 rpk security acl create --allow-principal "User:$GEOCONTEXT_USER" --operation read,describe --group 'geocontext-enrichment-group' -X user="$SUPER_USER" -X pass="$SUPER_PASS" || true
 rpk security acl create --allow-principal "User:$EVENTS_PROCESSOR_USER" --operation read,describe --group 'events-processor-group' --topic siscom-minimal -X user="$SUPER_USER" -X pass="$SUPER_PASS" || true
 rpk security acl create --allow-principal "User:$EVENTS_PROCESSOR_PRODUCER_USER" --operation write,describe --topic unit-events -X user="$SUPER_USER" -X pass="$SUPER_PASS" || true
+rpk security acl create --allow-principal "User:$ALERT_USER_EVENTS_NAME" --operation read,describe --group 'alerts-producer-group' -X user="$SUPER_USER" -X pass="$SUPER_PASS" || true
+rpk security acl create --allow-principal "User:$ALERT_USER_EVENTS_NAME" --operation write,describe --topic unit-alerts -X user="$SUPER_USER" -X pass="$SUPER_PASS" || true
 rpk security acl create --allow-principal "User:$ALERT_USER_EVENTS_NAME" --operation read,describe --group 'alert-processor-group' --topic unit-events -X user="$SUPER_USER" -X pass="$SUPER_PASS" || true
 rpk security acl create --allow-principal "User:$CONSUMER_USER" --operation read,describe --topic unit-events -X user="$SUPER_USER" -X pass="$SUPER_PASS" || true
 rpk security acl create --allow-principal "User:$CONSUMER_USER" --operation read,describe --group 'siscom-consumer-events-group' -X user="$SUPER_USER" -X pass="$SUPER_PASS" || true
