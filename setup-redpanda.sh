@@ -147,7 +147,12 @@ rpk security acl create --allow-principal "User:$CONSUMER_USER" --operation read
 rpk security acl create --allow-principal "User:$CONSUMER_USER" --operation read,describe --group 'siscom-consumer-events-group' -X user="$SUPER_USER" -X pass="$SUPER_PASS" || true
 rpk security acl create --allow-principal "User:$CONSUMER_USER" --operation read,describe --topic unit-alerts -X user="$SUPER_USER" -X pass="$SUPER_PASS" || true
 rpk security acl create --allow-principal "User:$CONSUMER_USER" --operation read,describe --group 'siscom-consumer-alerts-group' -X user="$SUPER_USER" -X pass="$SUPER_PASS" || true
+
+# Alert rules producer needs write access to alert-rules-updates topic to send the updates when rules are created/updated/deleted. USED EN SISCOM_ADMIN_API
 rpk security acl create --allow-principal "User:$ALERT_RULES_PRODUCER_USER" --operation write,describe --topic alert-rules-updates -X user="$SUPER_USER" -X pass="$SUPER_PASS" || true
+rpk security acl create --allow-principal "User:$ALERT_RULES_PRODUCER_USER" --operation write,describe --topic user-devices-updates -X user="$SUPER_USER" -X pass="$SUPER_PASS" || true
+rpk security acl create --allow-principal "User:$ALERT_RULES_PRODUCER_USER" --operation write,describe --topic user-units-updates -X user="$SUPER_USER" -X pass="$SUPER_PASS" || true
+
 
 # Disable auto topic creation to avoid mistakes. Topics should be created explicitly with the right configuration.
 rpk cluster config set auto_create_topics_enabled false -X admin.hosts=127.0.0.1:9644 || true
