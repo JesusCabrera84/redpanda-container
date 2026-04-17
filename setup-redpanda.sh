@@ -66,7 +66,7 @@ clear_pid_lock() {
 
 echo "[1/4] Starting Redpanda (Initial Setup)..."
 clear_pid_lock
-rpk redpanda start --overprovisioned --smp 1 --memory 1G --reserve-memory 0M --node-id "0" --check=false --kafka-addr PLAINTEXT://0.0.0.0:9092 --advertise-kafka-addr PLAINTEXT://localhost:9092 --set redpanda.core_balancing_continuous=false &
+rpk redpanda start --overprovisioned --smp 1 --memory 1G --reserve-memory 0M --node-id "0" --check=false --kafka-addr PLAINTEXT://0.0.0.0:9092 --advertise-kafka-addr PLAINTEXT://localhost:9092 --set redpanda.core_balancing_continuous=false --set redpanda.partition_autobalancing_mode=off &
 RP_PID=$!
 wait_for_admin
 
@@ -84,7 +84,7 @@ echo "[3/4] Creating Superuser and Configuring..."
 rpk security user create "$SUPER_USER" -p "$SUPER_PASS" --mechanism SCRAM-SHA-256 --api-urls 127.0.0.1:9644 || echo "Superuser might already exist"
 rpk cluster config set superusers "['$SUPER_USER']" -X admin.hosts=127.0.0.1:9644 || true
 # Keep autobalancing mode on the non-Enterprise value to avoid license warnings.
-rpk cluster config set partition_autobalancing_mode node_add -X admin.hosts=127.0.0.1:9644 || true
+rpk cluster config set partition_autobalancing_mode off -X admin.hosts=127.0.0.1:9644 || true
 
 echo "[4/4] Creating App Users, Topics, and ACLs..."
 rpk security user create "$PRODUCER_USER" -p "$PRODUCER_PASS" --mechanism SCRAM-SHA-256 || echo "Producer user already exists"
