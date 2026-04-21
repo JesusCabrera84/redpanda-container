@@ -25,6 +25,8 @@ ALERT_RULES_PRODUCER_USER="${PRODUCER_ALERT_RULES_USER_NAME:-alerts-rules-produc
 ALERT_RULES_PRODUCER_PASS="${PRODUCER_ALERT_RULES_USER_PASSWORD:-alertsrulesproducerpassword}"
 ALERT_DISTRIBUTOR_USER="${ALERT_DISTRIBUTOR_USER_NAME:-alerts-distributor}"
 ALERT_DISTRIBUTOR_PASS="${ALERT_DISTRIBUTOR_USER_PASSWORD:-alertsdistributorpassword}"
+TELEMETRY_CONSOLIDATOR_USER="${TELEMETRY_CONSOLIDATOR_USER_NAME:-telemetry-consolidator}"
+TELEMETRY_CONSOLIDATOR_PASS="${TELEMETRY_CONSOLIDATOR_USER_PASSWORD:-telemetryconsolidatorpassword}"
 
 # Helper function to wait for Redpanda Admin API
 wait_for_admin() {
@@ -99,6 +101,8 @@ rpk security user create "$ALERT_USER_EVENTS_NAME" -p "$ALERT_USER_EVENTS_PASSWO
 rpk security user create "$ALERT_RULES_PRODUCER_USER" -p "$ALERT_RULES_PRODUCER_PASS" --mechanism SCRAM-SHA-256 || echo "Alert rules producer user already exists"
 # User for distributing the generated alerts to the different consumers. It needs read access to unit-alerts and write access to alert distribution topics (not created yet).
 rpk security user create "$ALERT_DISTRIBUTOR_USER" -p "$ALERT_DISTRIBUTOR_PASS" --mechanism SCRAM-SHA-256 || echo "Alert distributor user already exists"
+# User for consuming siscom-minimal and producing telemetry data to db. It needs read access to siscom-minimal 
+rpk security user create "$TELEMETRY_CONSOLIDATOR_USER" -p "$TELEMETRY_CONSOLIDATOR_PASS" --mechanism SCRAM-SHA-256 || echo "Telemetry consolidator user already exists"
 # Create topics individually and ignore "already exists" errors
 for topic in siscom-messages siscom-minimal caudal-events caudal-live caudal-flows geocontext-enriched unit-events unit-alerts alert-rules-updates geofences-updates; do
   rpk topic create "$topic" \
@@ -130,6 +134,8 @@ rpk security acl create --allow-principal "User:$GEOCONTEXT_USER" --operation re
 
 # Events processor needs to consume from siscom-minimal and produce to unit-events, so it needs read access to the first and write access to the second. It also needs access to the consumer group to commit offsets.
 rpk security acl create --allow-principal "User:$EVENTS_PROCESSOR_USER" --operation read,describe --group 'events-processor-group' --topic siscom-minimal -X user="$SUPER_USER" -X pass="$SUPER_PASS" || true
+rpk security acl create --allow-principal "User:$EVENTS_PROCESSOR_USER" --operation read,describe --topic siscom-messages -X user="$SUPER_USER" -X pass="$SUPER_PASS" || true
+rpk security acl create --allow-principal "User:$EVENTS_PROCESSOR_USER" --operation read --group 'events-processor-group' -X user="$SUPER_USER" -X pass="$SUPER_PASS" || true
 rpk security acl create --allow-principal "User:$EVENTS_PROCESSOR_USER" --operation read,describe --group 'events-processor-group' --topic geofences-update -X user="$SUPER_USER" -X pass="$SUPER_PASS" || true
 rpk security acl create --allow-principal "User:$EVENTS_PROCESSOR_USER" --operation read,describe --topic geofences-update -X user="$SUPER_USER" -X pass="$SUPER_PASS" || true
 rpk security acl create --allow-principal "User:$EVENTS_PROCESSOR_PRODUCER_USER" --operation write,describe --topic unit-events -X user="$SUPER_USER" -X pass="$SUPER_PASS" || true
@@ -143,6 +149,10 @@ rpk security acl create --allow-principal "User:$ALERT_USER_EVENTS_NAME" --opera
 # Alert distributor needs read access to unit-alerts 
 rpk security acl create --allow-principal "User:$ALERT_DISTRIBUTOR_USER" --operation read,describe --topic unit-alerts -X user="$SUPER_USER" -X pass="$SUPER_PASS" || true
 rpk security acl create --allow-principal "User:$ALERT_DISTRIBUTOR_USER" --operation read,describe --group 'alert-distributor-group' -X user="$SUPER_USER" -X pass="$SUPER_PASS" || true
+
+# Telemetry consolidator needs read access to siscom-minimal and to its consumer group for committing offsets.
+rpk security acl create --allow-principal "User:$TELEMETRY_CONSOLIDATOR_USER" --operation read,describe --topic siscom-minimal -X user="$SUPER_USER" -X pass="$SUPER_PASS" || true
+rpk security acl create --allow-principal "User:$TELEMETRY_CONSOLIDATOR_USER" --operation read,describe --group 'telemetry-consolidator-group' -X user="$SUPER_USER" -X pass="$SUPER_PASS" || true
 
 # Consumer to persist the events and alerts in the database needs read access to both unit-events and unit-alerts topics, and also to the consumer groups to commit offsets.
 rpk security acl create --allow-principal "User:$CONSUMER_USER" --operation read,describe --topic unit-events -X user="$SUPER_USER" -X pass="$SUPER_PASS" || true
